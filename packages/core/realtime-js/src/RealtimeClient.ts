@@ -605,7 +605,19 @@ export default class RealtimeClient {
   private _onConnOpen() {
     this._setConnectionState('connected')
     this.log('transport', `connected to ${this.endpointURL()}`)
-    this.flushSendBuffer()
+
+    // Wait for any pending auth operations before flushing send buffer
+    // This ensures channel join messages include the correct access token
+    this._waitForAuthIfNeeded()
+      .then(() => {
+        this.flushSendBuffer()
+      })
+      .catch((e) => {
+        this.log('error', 'error waiting for auth on connect', e)
+        // Proceed anyway to avoid hanging connections
+        this.flushSendBuffer()
+      })
+
     this._clearTimer('reconnect')
 
     if (!this.worker) {
