@@ -187,6 +187,13 @@ export default class RealtimeClient {
 
     this._setConnectionState('connecting')
 
+    // Trigger auth if needed and not already in progress
+    // This ensures auth is called for standalone RealtimeClient usage
+    // while avoiding race conditions with SupabaseClient's immediate setAuth call
+    if (this.accessToken && !this._authPromise) {
+      this._setAuthSafely('connect')
+    }
+
     // Establish WebSocket connection
     if (this.transport) {
       // Use custom transport if provided
