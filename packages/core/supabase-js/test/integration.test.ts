@@ -363,31 +363,45 @@ describe('Storage API', () => {
 describe('Custom JWT', () => {
   describe('Realtime', () => {
     test('will connect with a properly signed jwt token', async () => {
-      const jwtToken = sign({ sub: '1234567890' }, JWT_SECRET, { expiresIn: '1h' })
+      const jwtToken = sign(
+        {
+          sub: '1234567890',
+          role: 'anon',
+          iss: 'supabase-demo',
+        },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      )
       const supabaseWithCustomJwt = createClient(SUPABASE_URL, ANON_KEY, {
         accessToken: () => Promise.resolve(jwtToken),
+        realtime: {
+          ...(wsTransport && { transport: wsTransport }),
+        },
       })
 
-      // Wait for subscription using Promise to avoid polling
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout waiting for subscription'))
-        }, 10000)
+      try {
+        // Wait for subscription using Promise to avoid polling
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for subscription'))
+          }, 4000)
 
-        supabaseWithCustomJwt.channel('test-channel').subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            clearTimeout(timeout)
-            // Verify token was set
-            expect(supabaseWithCustomJwt.realtime.accessTokenValue).toBe(jwtToken)
-            resolve()
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            clearTimeout(timeout)
-            reject(err || new Error(`Subscription failed with status: ${status}`))
-          }
+          supabaseWithCustomJwt.channel('test-channel').subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') {
+              clearTimeout(timeout)
+              // Verify token was set
+              expect(supabaseWithCustomJwt.realtime.accessTokenValue).toBe(jwtToken)
+              resolve()
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              clearTimeout(timeout)
+              reject(err || new Error(`Subscription failed with status: ${status}`))
+            }
+          })
         })
-      })
-
-      await supabaseWithCustomJwt.removeAllChannels()
-    }, 15000)
+      } finally {
+        // Always cleanup channels and connection, even if test fails
+        await supabaseWithCustomJwt.removeAllChannels()
+      }
+    }, 5000)
   })
 })

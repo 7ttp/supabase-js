@@ -186,7 +186,6 @@ export default class RealtimeClient {
     }
 
     this._setConnectionState('connecting')
-    this._setAuthSafely('connect')
 
     // Establish WebSocket connection
     if (this.transport) {
@@ -253,11 +252,13 @@ export default class RealtimeClient {
         this._setConnectionState('disconnected')
       }
 
-      // Close the WebSocket connection
-      if (code) {
-        this.conn.close(code, reason ?? '')
-      } else {
-        this.conn.close()
+      // Close the WebSocket connection if close method exists
+      if (typeof this.conn.close === 'function') {
+        if (code) {
+          this.conn.close(code, reason ?? '')
+        } else {
+          this.conn.close()
+        }
       }
 
       this._teardownConnection()
@@ -608,7 +609,11 @@ export default class RealtimeClient {
 
     // Wait for any pending auth operations before flushing send buffer
     // This ensures channel join messages include the correct access token
-    this._waitForAuthIfNeeded()
+    const authPromise =
+      this._authPromise ||
+      (this.accessToken && !this.accessTokenValue ? this.setAuth() : Promise.resolve())
+
+    authPromise
       .then(() => {
         this.flushSendBuffer()
       })
