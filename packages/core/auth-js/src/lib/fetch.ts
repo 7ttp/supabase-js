@@ -224,8 +224,6 @@ async function _handleRequest(
       ...requestParams,
     })
   } catch (e) {
-    console.error(e)
-
     // fetch failed, likely due to a network or CORS error
     throw new AuthRetryableFetchError(_getErrorMessage(e), 0)
   }

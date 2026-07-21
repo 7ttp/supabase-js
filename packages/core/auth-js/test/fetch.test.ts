@@ -122,6 +122,24 @@ describe('fetch', () => {
       await server.start()
     })
 
+    test('should not raw-log to console.error when the underlying fetch rejects (e.g. request aborted by page navigation)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const abortedFetch = (async () => {
+        throw new TypeError('Failed to fetch')
+      }) as unknown as typeof fetch
+
+      const url = server.getURL().toString()
+
+      await expect(_request(abortedFetch, 'GET', url)).rejects.toBeInstanceOf(
+        AuthRetryableFetchError
+      )
+
+      expect(consoleErrorSpy).not.toHaveBeenCalled()
+
+      consoleErrorSpy.mockRestore()
+    })
+
     test('should work with custom fetch implementation', async () => {
       const customFetch = (async () => {
         return {
